@@ -1,5 +1,6 @@
 ﻿using Application.Commons;
 using Application.Interfaces;
+using Application.Utils;
 using Application.ViewModels;
 using AutoMapper;
 using Domain.Contracts.Abstracts.Shared;
@@ -63,6 +64,76 @@ namespace Application.Services
             {
                 Error = 0,
                 Message = "Register successfully! Please check mail to verify."
+            };
+        }
+
+        public async Task<Result<object>> SignInAccount(LoginUserDTO req)
+        {
+            var user = await _unitOfWork.playerRepository.GetPlayerByEmail(req.Email);
+
+            if (user == null)
+            {
+                return new Result<object>
+                {
+                    Error = 1,
+                    Message = "User not found.",
+                    Data = null
+                };
+            }
+
+            var isPasswordValid = _passwordHash.VerifyPasswordHash(req.Password, user.PasswordHash, user.PasswordSalt);
+
+            if (!isPasswordValid)
+            {
+                return new Result<object>
+                {
+                    Error = 1,
+                    Message = "Incorrect password.",
+                    Data = null
+                };
+            }
+
+            if (user.VerifiedAt == null)
+            {
+                return new Result<object>
+                {
+                    Error = 1,
+                    Message = "Please verify your email.",
+                    Data = null
+                };
+            }
+
+            var token = user.GenerateJsonWebToken(_configuration.JWTSecretKey, _currentTime.GetCurrentTime());
+
+            return new Result<object>
+            {
+                Error = 0,
+                Message = $"Welcome back, {user.UserName}!",
+                Data = token
+            };
+        }
+
+        public async Task<Result<object>> Verify(VerifyTokenDTO request)
+        {
+            var verify = await _unitOfWork.playerRepository.Verify(request.Token);
+
+            if (verify == null)
+            {
+                return new Result<object>
+                {
+                    Error = 1,
+                    Message = "Invalid token"
+                };
+            }
+
+            verify.VerifiedAt = DateTime.UtcNow;
+            verify.VerificationToken = null;
+            await _unitOfWork.SaveChangeAsync();
+
+            return new Result<object>
+            {
+                Error = 0,
+                Message = "Verify successfully!"
             };
         }
     }

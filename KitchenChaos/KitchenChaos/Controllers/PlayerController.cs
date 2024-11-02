@@ -41,5 +41,39 @@ namespace KitchenChaos.Controllers
             var result = await _playerService.CreateAccount(_mapper.Map<RegisterUserDTO>(request));
             return Ok(result);
         }
+
+        [HttpPost("login")]
+        [ProducesResponseType(200, Type = typeof(Result<object>))]
+        [ProducesResponseType(400, Type = typeof(Result<object>))]
+        public async Task<IActionResult> Login([FromForm] LoginUserRequest req)
+        {
+            var validator = new LoginUserValidator();
+            var validationResult = validator.Validate(req);
+            if (!validationResult.IsValid)
+            {
+                return BadRequest(new Result<object>
+                {
+                    Error = 1,
+                    Message = "Validation failed!",
+                    Data = validationResult.Errors.Select(x => x.ErrorMessage)
+                });
+            }
+
+            var loginDto = _mapper.Map<LoginUserDTO>(req);
+            var result = await _playerService.SignInAccount(loginDto);
+
+            return Ok(result);
+        }
+
+        [HttpPost("verify")]
+        [ProducesResponseType(200, Type = typeof(Result<object>))]
+        [ProducesResponseType(400, Type = typeof(Result<object>))]
+        public async Task<IActionResult> Verify([FromBody] VerifyTokenRequest req)
+        {
+            var verifyMapper = _mapper.Map<VerifyTokenDTO>(req);
+            var result = await _playerService.Verify(verifyMapper);
+
+            return Ok(result);
+        }
     }
 }
